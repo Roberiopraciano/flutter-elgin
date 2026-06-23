@@ -70,6 +70,21 @@ class Printer {
 }
 
 
+Future<int> printImageBytes(Uint8List imageBytes, {required ElginPrinter driver}) async {
+  _lastDriver = driver;
+  final mapParam = {
+    'imageBytes': imageBytes,
+    'type': driver.type.value,
+    'model': driver.model?.value ?? 'M8',
+    'connection': driver.connection ?? '',
+    'param': driver.parameter ?? 0,
+  };
+  final code = _normInt(await _invoke<int>('printImageBytes', {'imageArgs': mapParam}));
+  if (code < 0) throw ElginException(code);
+  return code;
+}
+
+
 /// Reconecta SEM reset (igual ao _openPrinter da Elgin que funciona).
 Future<int> _reopenRaw() async {
   if (_lastDriver == null) return -1;

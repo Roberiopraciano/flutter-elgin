@@ -46,6 +46,7 @@ public class ElginPlugin implements FlutterPlugin, MethodCallHandler , ActivityA
     switch(call.method){
       default:
         result.notImplemented();
+        break;
       case "getPlatformVersion":
        result.success("Android " + android.os.Build.VERSION.RELEASE);
       break;
@@ -66,7 +67,13 @@ public class ElginPlugin implements FlutterPlugin, MethodCallHandler , ActivityA
         int resultReopen = printer.printerReopenNoStop(reopenArgs);
         result.success(resultReopen);
         break;
-  
+
+
+      case "printImageBytes":
+        HashMap imgBytesArgs = call.argument("imageArgs");
+        int resultImgBytes = printer.imprimeImagemBytes(imgBytesArgs);
+        result.success(resultImgBytes);
+        break;     
 
 
       case "reset":

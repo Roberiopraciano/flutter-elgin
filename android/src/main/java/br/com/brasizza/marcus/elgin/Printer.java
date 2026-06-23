@@ -21,6 +21,33 @@ public class Printer {
 
     }
 
+    private boolean isConnected = false;
+
+        // Abre SÓ se não estiver conectado, e NUNCA fecha antes (igual à Elgin)
+        private boolean ensureConnection(Map map) {
+            if (isConnected) return true;
+            int typeImp = (Integer) map.get("type");
+            String modelImp = (String) map.get("model");
+            String connImp = (String) map.get("connection");
+            int paramImp = (Integer) map.get("param");
+            int res = Termica.AbreConexaoImpressora(typeImp, modelImp, connImp, paramImp);
+            if (res == 0 || res == -6) { isConnected = true; return true; }
+            return false;
+        }
+
+        // Imprime de BYTES via ImprimeImagem (não ImprimeBitmap, não arquivo)
+        public int imprimeImagemBytes(Map map) {
+            byte[] imageBytes = (byte[]) map.get("imageBytes");
+            if (!ensureConnection(map)) return -4;
+
+            Bitmap bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.length);
+            if (bitmap == null) return -1;
+
+            int result = Termica.ImprimeImagem(bitmap);  // método da Elgin que funciona
+            bitmap.recycle();
+            return result;
+        }
+
     public int printerInternalImpStart(Map map) {
         int typeImp =  (Integer) map.get("type");
         String modelImp =  (String) map.get("model");
@@ -37,13 +64,15 @@ public class Printer {
         Log.d("elgin" ,"paramImp = "+ paramImp);
 
         int result = Termica.AbreConexaoImpressora(typeImp, modelImp, connImp, paramImp);
+         if (result == 0 || result == -6) isConnected = true;  // ← adicionar
         return result;
     }
 
   
 
     public void printerStop() {
-        Termica.FechaConexaoImpressora();
+       Termica.FechaConexaoImpressora();
+       isConnected = false;  // ← adicionar
     }
 
     public int avancaLinhas(int lines) {
@@ -104,18 +133,19 @@ public class Printer {
     }
 
 
-    public int printerReopenNoStop(Map map) {
-    int typeImp =  (Integer) map.get("type");
-    String modelImp =  (String) map.get("model");
-    String connImp =  (String) map.get("connection");
-    int paramImp =  (Integer) map.get("param");
+     public int printerReopenNoStop(Map map) {
+            int typeImp =  (Integer) map.get("type");
+            String modelImp =  (String) map.get("model");
+            String connImp =  (String) map.get("connection");
+            int paramImp =  (Integer) map.get("param");
 
-    Log.d("elgin" ,"reopen WITHOUT stop");
-    Log.d("elgin" ,"typeImp = "+ typeImp);
+            Log.d("elgin" ,"reopen WITHOUT stop");
+            Log.d("elgin" ,"typeImp = "+ typeImp);
 
-    int result = Termica.AbreConexaoImpressora(typeImp, modelImp, connImp, paramImp);
-    return result;
-}
+            int result = Termica.AbreConexaoImpressora(typeImp, modelImp, connImp, paramImp);
+            if (result == 0 || result == -6) isConnected = true;  // ← adicionar
+            return result;
+    }
 
     public int imprimeImagem(Map map) {
         String pathImage = (String) map.get("path");
