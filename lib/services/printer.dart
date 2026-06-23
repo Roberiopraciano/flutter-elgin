@@ -79,12 +79,11 @@ Future<int> _reopenRaw() async {
     'connection': _lastDriver!.connection ?? '',
     'param': _lastDriver!.parameter ?? 0,
   };
-  final raw = _normInt(await _invoke<int>('startInternalPrinter', {
+  final raw = _normInt(await _invoke<int>('reopenNoStop', {  // ← método novo
     'printerArgs': mapParam,
   }));
-  return (raw == -6) ? 0 : raw; // -6 = já aberta = ok
+  return (raw == -6) ? 0 : raw;
 }
-
 
   Future<int> disconnect() async {
     final ok = await _invoke<bool>('stopPrinter') ?? false;

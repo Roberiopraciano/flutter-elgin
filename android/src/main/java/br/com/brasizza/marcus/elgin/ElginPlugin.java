@@ -61,6 +61,13 @@ public class ElginPlugin implements FlutterPlugin, MethodCallHandler , ActivityA
         result.success(true);
         break;
 
+      case "reopenNoStop":
+        HashMap reopenArgs = call.argument("printerArgs");
+        int resultReopen = printer.printerReopenNoStop(reopenArgs);
+        result.success(resultReopen);
+        break;
+  
+
 
       case "reset":
         int resultReset = printer.InicializaImpressora();

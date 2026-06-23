@@ -103,6 +103,20 @@ public class Printer {
 
     }
 
+
+    public int printerReopenNoStop(Map map) {
+    int typeImp =  (Integer) map.get("type");
+    String modelImp =  (String) map.get("model");
+    String connImp =  (String) map.get("connection");
+    int paramImp =  (Integer) map.get("param");
+
+    Log.d("elgin" ,"reopen WITHOUT stop");
+    Log.d("elgin" ,"typeImp = "+ typeImp);
+
+    int result = Termica.AbreConexaoImpressora(typeImp, modelImp, connImp, paramImp);
+    return result;
+}
+
     public int imprimeImagem(Map map) {
         String pathImage = (String) map.get("path");
         boolean isBase64 = (boolean) map.get("isBase64");
