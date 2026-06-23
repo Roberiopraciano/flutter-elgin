@@ -207,30 +207,45 @@ class Printer {
 
   Future<int> printImage(File image, bool isBase64) async {
   final mapParam = {'path': image.path, 'isBase64': isBase64};
-  int code = _normInt(await _invoke<int>('printImage', {'imageArgs': mapParam}));
-   // -4 = porta fechada: tenta reconectar e retry uma vez
-  if (code == -4 && _lastDriver != null) {
+  final isSmartPos = _lastDriver?.type == ElginPrinterType.SMARTPOS;
+
+  if (isSmartPos) {
+    // SMARTPOS (Android integrada): conexão persistente
+    int code = _normInt(await _invoke<int>('printImage', {'imageArgs': mapParam}));
+
+    if (code == -4) {
+      // Porta fechada: tenta reconectar
+      print('Printer port closed (-4). Attempting to re-open...');
+      int openRes = -1;
+      try {
+        openRes = await connect(driver: _lastDriver!);
+      } catch (_) {}
+
+      // OK (0) ou Já aberta (-6)
+      if (openRes == 0 || openRes == -6) {
+        print('Printer re-opened (Code: $openRes). Retrying print...');
+        code = _normInt(await _invoke<int>('printImage', {'imageArgs': mapParam}));
+      } else {
+        print('Failed to re-open printer (Code: $openRes).');
+      }
+    }
+
+    if (code < 0) throw ElginException(code);
+    return code;
+
+  } else {
+    // Outros tipos (TCP, USB, BT): Open → Print → Close
+    if (_lastDriver == null) throw ElginException(-1);
+    await connect(driver: _lastDriver!);
     try {
-      await connect(driver: _lastDriver!);
-      code = _normInt(await _invoke<int>('printImage', {'imageArgs': mapParam}));
-    } catch (_) {
-      // reconexão falhou, mantém o código original
+      final code = _normInt(await _invoke<int>('printImage', {'imageArgs': mapParam}));
+      if (code < 0) throw ElginException(code);
+      return code;
+    } finally {
+      await disconnect();
     }
   }
-
-  if (code < 0) throw ElginException(code);
-  return code;
-
-  // Future<int> printImage(File image, bool isBase64) async {
-  //   final mapParam = {'path': image.path, 'isBase64': isBase64};
-  //   final code = _normInt(await _invoke<int>('printImage', {'imageArgs': mapParam}));
-  //   if (code < 0) throw ElginException(code);
-
-  //   // Se seu hardware precisar, micro pausa pós-imagem:
-  //   // await Future.delayed(const Duration(milliseconds: 120));
-
-  //   return code;
-  }
+}
 
   Future<int> printQRCode(
     String text, {
