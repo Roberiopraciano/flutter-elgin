@@ -68,6 +68,24 @@ class Printer {
 
   return code;
 }
+
+
+/// Reconecta SEM reset (igual ao _openPrinter da Elgin que funciona).
+Future<int> _reopenRaw() async {
+  if (_lastDriver == null) return -1;
+  final mapParam = <String, dynamic>{
+    'type': _lastDriver!.type.value,
+    'model': _lastDriver!.model?.value ?? 'M8',
+    'connection': _lastDriver!.connection ?? '',
+    'param': _lastDriver!.parameter ?? 0,
+  };
+  final raw = _normInt(await _invoke<int>('startInternalPrinter', {
+    'printerArgs': mapParam,
+  }));
+  return (raw == -6) ? 0 : raw; // -6 = já aberta = ok
+}
+
+
   Future<int> disconnect() async {
     final ok = await _invoke<bool>('stopPrinter') ?? false;
     final code = ok ? 9999 : -1;
@@ -207,35 +225,31 @@ class Printer {
     return code;
   }
 
-
-  Future<int> printImage(File image, bool isBase64) async {
+Future<int> printImage(File image, bool isBase64) async {
   final mapParam = {'path': image.path, 'isBase64': isBase64};
   final isSmartPos = _lastDriver?.type == ElginPrinterType.SMARTPOS;
 
   if (isSmartPos) {
-    // SMARTPOS (Android integrada): conexão persistente
+    // Imprime DIRETO (conexão já aberta no init)
     int code = _normInt(await _invoke<int>('printImage', {'imageArgs': mapParam}));
 
     if (code == -4) {
-      for (int tentativa = 1; tentativa <= 3 && code == -4; tentativa++) {
-        print('[Elgin] Tentativa $tentativa de reconexão...');
-        int openRes = -1;
-        try {
-          openRes = await connect(driver: _lastDriver!);
-        } catch (_) {}
+      print('[Elgin] Porta fechada (-4). Reabrindo (sem reset)...');
+      final openRes = await _reopenRaw(); // SEM reset()
 
-        if (openRes == 0) {
-          await Future.delayed(Duration(milliseconds: 400 * tentativa));
-          code = _normInt(await _invoke<int>('printImage', {'imageArgs': mapParam}));
-          print('[Elgin] Tentativa $tentativa resultado: $code');
-        }
+      if (openRes == 0) {
+        print('[Elgin] Reaberta. Retry imediato...');
+        code = _normInt(await _invoke<int>('printImage', {'imageArgs': mapParam})); // SEM delay
+        print('[Elgin] Resultado retry: $code');
+      } else {
+        print('[Elgin] Falha ao reabrir (Code: $openRes).');
       }
     }
+
     if (code < 0) throw ElginException(code);
     return code;
 
   } else {
-    // Outros tipos (TCP, USB, BT): Open → Print → Close
     if (_lastDriver == null) throw ElginException(-1);
     await connect(driver: _lastDriver!);
     try {
