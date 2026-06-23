@@ -22,6 +22,8 @@ class Printer {
   static Printer? _instance;
   Printer._();
 
+  ElginPrinter? _lastDriver; // armazena para reconexão
+
   final _AsyncMutex _mutex = _AsyncMutex();
 
   // Helper centralizado para invocar o channel de forma serializada
@@ -51,7 +53,7 @@ class Printer {
       'connection': driver.connection ?? '',
       'param': driver.parameter ?? 0,
     };
-
+    _lastDriver = driver;
     final code = _normInt(await _invoke<int>('startInternalPrinter', {
       'printerArgs': mapParam,
     }));
@@ -202,15 +204,32 @@ class Printer {
     return code;
   }
 
+
   Future<int> printImage(File image, bool isBase64) async {
-    final mapParam = {'path': image.path, 'isBase64': isBase64};
-    final code = _normInt(await _invoke<int>('printImage', {'imageArgs': mapParam}));
-    if (code < 0) throw ElginException(code);
+  final mapParam = {'path': image.path, 'isBase64': isBase64};
+  int code = _normInt(await _invoke<int>('printImage', {'imageArgs': mapParam}));
+   // -4 = porta fechada: tenta reconectar e retry uma vez
+  if (code == -4 && _lastDriver != null) {
+    try {
+      await connect(driver: _lastDriver!);
+      code = _normInt(await _invoke<int>('printImage', {'imageArgs': mapParam}));
+    } catch (_) {
+      // reconexão falhou, mantém o código original
+    }
+  }
 
-    // Se seu hardware precisar, micro pausa pós-imagem:
-    // await Future.delayed(const Duration(milliseconds: 120));
+  if (code < 0) throw ElginException(code);
+  return code;
 
-    return code;
+  // Future<int> printImage(File image, bool isBase64) async {
+  //   final mapParam = {'path': image.path, 'isBase64': isBase64};
+  //   final code = _normInt(await _invoke<int>('printImage', {'imageArgs': mapParam}));
+  //   if (code < 0) throw ElginException(code);
+
+  //   // Se seu hardware precisar, micro pausa pós-imagem:
+  //   // await Future.delayed(const Duration(milliseconds: 120));
+
+  //   return code;
   }
 
   Future<int> printQRCode(
