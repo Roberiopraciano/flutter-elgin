@@ -217,24 +217,20 @@ class Printer {
     int code = _normInt(await _invoke<int>('printImage', {'imageArgs': mapParam}));
 
     if (code == -4) {
-  print('[Elgin] Porta fechada (-4). Reconectando...');
-  int openRes = -1;
-  try {
-    openRes = await connect(driver: _lastDriver!);
-    print('[Elgin] Reconexão resultado: $openRes');
-  } catch (e) {
-    print('[Elgin] Falha na reconexão: $e');
-  }
+      for (int tentativa = 1; tentativa <= 3 && code == -4; tentativa++) {
+        print('[Elgin] Tentativa $tentativa de reconexão...');
+        int openRes = -1;
+        try {
+          openRes = await connect(driver: _lastDriver!);
+        } catch (_) {}
 
-  if (openRes == 0) {
-    print('[Elgin] Reconectado. Retry da impressão...');
-    code = _normInt(await _invoke<int>('printImage', {'imageArgs': mapParam}));
-    print('[Elgin] Resultado retry: $code');
-  } else {
-    print('[Elgin] Não reconectou (openRes=$openRes). Sem retry.');
-  }
-}
-
+        if (openRes == 0) {
+          await Future.delayed(Duration(milliseconds: 400 * tentativa));
+          code = _normInt(await _invoke<int>('printImage', {'imageArgs': mapParam}));
+          print('[Elgin] Tentativa $tentativa resultado: $code');
+        }
+      }
+    }
     if (code < 0) throw ElginException(code);
     return code;
 
