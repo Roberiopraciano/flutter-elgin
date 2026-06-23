@@ -47,24 +47,27 @@ class Printer {
 
   /// Conecta e faz um reset inicial uma única vez para padronizar estado.
   Future<int> connect({required ElginPrinter driver}) async {
-    final mapParam = <String, dynamic>{
-      'type': driver.type.value,
-      'model': driver.model?.value ?? 'M8',
-      'connection': driver.connection ?? '',
-      'param': driver.parameter ?? 0,
-    };
-    _lastDriver = driver;
-    final code = _normInt(await _invoke<int>('startInternalPrinter', {
-      'printerArgs': mapParam,
-    }));
-    if (code < 0) throw ElginException(code);
+  final mapParam = <String, dynamic>{
+    'type': driver.type.value,
+    'model': driver.model?.value ?? 'M8',
+    'connection': driver.connection ?? '',
+    'param': driver.parameter ?? 0,
+  };
+  _lastDriver = driver;
 
-    final r = await reset(); // estado inicial
-    if (r < 0) throw ElginException(r);
+  final rawCode = _normInt(await _invoke<int>('startInternalPrinter', {
+    'printerArgs': mapParam,
+  }));
 
-    return code;
-  }
+  // -6 = já conectada = sucesso para fins de reconexão
+  final code = (rawCode == -6) ? 0 : rawCode;
+  if (code < 0) throw ElginException(code);
 
+  final r = await reset();
+  if (r < 0) throw ElginException(r);
+
+  return code;
+}
   Future<int> disconnect() async {
     final ok = await _invoke<bool>('stopPrinter') ?? false;
     final code = ok ? 9999 : -1;
@@ -214,21 +217,23 @@ class Printer {
     int code = _normInt(await _invoke<int>('printImage', {'imageArgs': mapParam}));
 
     if (code == -4) {
-      // Porta fechada: tenta reconectar
-      print('Printer port closed (-4). Attempting to re-open...');
-      int openRes = -1;
-      try {
-        openRes = await connect(driver: _lastDriver!);
-      } catch (_) {}
+  print('[Elgin] Porta fechada (-4). Reconectando...');
+  int openRes = -1;
+  try {
+    openRes = await connect(driver: _lastDriver!);
+    print('[Elgin] Reconexão resultado: $openRes');
+  } catch (e) {
+    print('[Elgin] Falha na reconexão: $e');
+  }
 
-      // OK (0) ou Já aberta (-6)
-      if (openRes == 0 || openRes == -6) {
-        print('Printer re-opened (Code: $openRes). Retrying print...');
-        code = _normInt(await _invoke<int>('printImage', {'imageArgs': mapParam}));
-      } else {
-        print('Failed to re-open printer (Code: $openRes).');
-      }
-    }
+  if (openRes == 0) {
+    print('[Elgin] Reconectado. Retry da impressão...');
+    code = _normInt(await _invoke<int>('printImage', {'imageArgs': mapParam}));
+    print('[Elgin] Resultado retry: $code');
+  } else {
+    print('[Elgin] Não reconectou (openRes=$openRes). Sem retry.');
+  }
+}
 
     if (code < 0) throw ElginException(code);
     return code;
